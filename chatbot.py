@@ -18,7 +18,7 @@ VALID_ANSWERS = {
 }
 
 
-class BotHandler:
+class BotHandler():
 
     def __init__(self, token):
         self.token = token
@@ -56,30 +56,81 @@ class ChatBotBrains(object):
 
         self.machine.add_transition('next', 'check', 'thanks')
 
-        self.machine.add_transition('begin', 'check', 'size')
-
         self.machine.add_transition('next', 'thanks', 'size')
 
     def add_model(self, model):
         self.machine.add_model(model)
 
 
+def test():
+    print("Testing started")
+    chat_bot_brains = ChatBotBrains()
+    c0 = ChatClient()
+    c1 = ChatClient()
+    chat_bot_brains.add_model(c0)
+    chat_bot_brains.add_model(c1)
+    assert(c0.state == 'size')
+    assert(c1.state == 'size')
+    c0msg = 'Test'
+    if c0msg in VALID_ANSWERS[c0.state]:
+        c0.next()
+    assert(c0.state == 'size')
+    assert(c1.state == 'size')
+    c0msg = 'Большую'
+    if c0msg in VALID_ANSWERS[c0.state]:
+        c0.next()
+    assert(c0.state == 'pay')
+    assert(c1.state == 'size')
+    c0msg = 'Наличкой'
+    if c0msg in VALID_ANSWERS[c0.state]:
+        c0.next()
+    assert(c0.state == 'check')
+    assert(c1.state == 'size')
+    c1msg = 'Наличкой'
+    if c1msg in VALID_ANSWERS[c1.state]:
+        c1.next()
+    assert(c0.state == 'check')
+    assert(c1.state == 'size')
+    c1msg = 'Большую'
+    if c1msg in VALID_ANSWERS[c1.state]:
+        c1.next()
+    assert(c0.state == 'check')
+    assert(c1.state == 'pay')
+    c0msg = 'Да'
+    if c0msg in VALID_ANSWERS[c0.state]:
+        c0.next()
+    assert(c0.state == 'thanks')
+    assert(c1.state == 'pay')
+    c1msg = 'Наличкой'
+    if c1msg in VALID_ANSWERS[c1.state]:
+        c1.next()
+    assert(c0.state == 'thanks')
+    assert(c1.state == 'check')
+    c1msg = 'Да'
+    if c1msg in VALID_ANSWERS[c1.state]:
+        c1.next()
+    assert(c0.state == 'thanks')
+    assert(c1.state == 'thanks')
+    print("Testing finished successfully")
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--test', type=bool, default=False)
+    parser.add_argument('-t', '--test', action='store_true')
     args = parser.parse_args()
 
     if args.test:
-        pass
-    else:
-        data_source = BotHandler(TOKEN)
+        test()
+        return
+
+    data_source = BotHandler(TOKEN)
     chat_bot_brains = ChatBotBrains()
     clients = {}
 
     new_offset = None
 
     while True:
-        updates = chat_bot.get_updates(new_offset)
+        updates = data_source.get_updates(new_offset)
 
         for u in updates:
             update_id = u['update_id']
@@ -88,11 +139,11 @@ def main():
             if chat_id not in clients:
                 clients[chat_id] = ChatClient()
                 chat_bot_brains.add_model(clients[chat_id])
-                chat_bot.send_message(chat_id, QUESTIONS[clients[chat_id].state])
+                data_source.send_message(chat_id, QUESTIONS[clients[chat_id].state])
             else:
                 if chat_text in VALID_ANSWERS[clients[chat_id].state]:
                     clients[chat_id].next()
-                chat_bot.send_message(chat_id, QUESTIONS[clients[chat_id].state])
+                data_source.send_message(chat_id, QUESTIONS[clients[chat_id].state])
                 if clients[chat_id].state == 'thanks':
                     del clients[chat_id]
 
